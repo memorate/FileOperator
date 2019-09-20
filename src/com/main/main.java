@@ -1,90 +1,86 @@
 package com.main;
 
-import com.myClass.repository;
+import com.myClass.Repository;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class main {
-    public static void main(String[] args) {
-        File inFile = new File("D:\\MyData\\Administrator\\Desktop\\storage.txt");
-        BufferedReader reader = null;
-        String eachLine = null;
-        int line = 1;
-        long dev = 0;
-        long doc = 0;
-        long release = 0;
-        long other = 0;
-        List<repository> repoList = new ArrayList<>();
-        List<repository> docList = new ArrayList<>();
-        List<repository> releaseList = new ArrayList<>();
-        List<repository> otherList = new ArrayList<>();
-        try {
-            reader = new BufferedReader(new FileReader(inFile));
-            while ((eachLine = reader.readLine()) != null) {
-                String[] spString = eachLine.split("\\s+");
-                if (spString[1].toLowerCase().endsWith("dev")) {
-                    dev = dev + Long.parseLong(spString[0]);
-                    repoList.add(new repository(Long.parseLong(spString[0]), spString[1]));
-                } else if (spString[1].toLowerCase().endsWith("doc")) {
-                    doc = doc + Long.parseLong(spString[0]);
-                    docList.add(new repository(Long.parseLong(spString[0]), spString[1]));
-                } else if (spString[1].toLowerCase().endsWith("release")) {
-                    release = release + Long.parseLong(spString[0]);
-                    releaseList.add(new repository(Long.parseLong(spString[0]), spString[1]));
-                } else {
-                    other = other + Long.parseLong(spString[0]);
-                    otherList.add(new repository(Long.parseLong(spString[0]), spString[1]));
-                }
-                line++;
-            }
-            Collections.sort(repoList);
-            Collections.sort(docList);
-            Collections.sort(releaseList);
-            Collections.sort(otherList);
-            repoList.addAll(docList);
-            repoList.addAll(releaseList);
-            repoList.addAll(otherList);
-            System.out.println("dev" + ":" + dev/1024 + "G");
-            System.out.println("doc" + ":" + doc/1024 + "G");
-            System.out.println("release" + ":" + release/1024 + "G");
-            System.out.println("other" + ":" + other/1024 + "G");
-            System.out.println("------------------------");
-//            FileWriter fw = new FileWriter("D:\\MyData\\Administrator\\Desktop\\ttttt.csv");
-            FileWriter fw = new FileWriter("D:\\MyData\\Administrator\\Desktop\\result.txt");
-            fw.flush();
-            BufferedWriter bw = new BufferedWriter(fw);
-            bw.write("统计结果：" + "\r\n");
-            bw.write("代码库" + "                   " + dev/1024 + "G" + "\r\n");
-            bw.write("文档库" + "                   " + doc/1024 + "G" + "\r\n");
-            bw.write("制品库" + "                   " + release/1024 + "G" + "\r\n");
-            bw.write("其他" + "                      " + other/1024 + "G" + "\r\n");
-            bw.write("----------------------------------" + "\r\n");
-            bw.write("仓库名：" + "                " + "仓库大小：" + "\r\n");
-            for (repository svnRepo : repoList) {
-                String blank = calculate(svnRepo.getName());
-                long sizeG = 0;
-                if (svnRepo.getSize() < 1024) {
-                    sizeG = svnRepo.getSize();
-                    bw.write(svnRepo.getName() + blank + sizeG + "M" + "\r\n");
-                } else {
-                    sizeG = svnRepo.getSize() / 1024;
-                    bw.write(svnRepo.getName() + blank + sizeG + "G" + "\r\n");
-                }
-            }
-            bw.close();
-            fw.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                reader.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+    public static void main(String[] args) throws Exception {
+        long devSize = 0;
+        long docSize = 0;
+        long releaseSize = 0;
+        long otherSize = 0;
+        List<Repository> repositoryList = parseTxt("D:\\文件\\持续集成项目\\svn生产环境仓库大小统计\\storage.txt");
+        List<Repository> codeList = new ArrayList<>();
+        List<Repository> docList = new ArrayList<>();
+        List<Repository> releaseList = new ArrayList<>();
+        List<Repository> otherList = new ArrayList<>();
+        //根据仓库名后缀统计不同类型仓库
+        for (Repository repository : repositoryList) {
+            if (filter(repository.getName(), "dev")){
+                devSize += repository.getSize();
+                codeList.add(repository);
+            }else if (filter(repository.getName(), "doc")){
+                docSize += repository.getSize();
+                docList.add(repository);
+            }else if (filter(repository.getName(), "release")){
+                releaseSize += repository.getSize();
+                releaseList.add(repository);
+            }else {
+                otherSize += repository.getSize();
+                otherList.add(repository);
             }
         }
+        //每种仓库按仓库大小排序
+        Collections.sort(codeList);
+        Collections.sort(docList);
+        Collections.sort(releaseList);
+        Collections.sort(otherList);
+        List<Repository> result = new ArrayList<>();
+        //将同种仓库放在一起
+        result.addAll(codeList);
+        result.addAll(docList);
+        result.addAll(releaseList);
+        result.addAll(otherList);
+
+//            FileWriter fw = new FileWriter("D:\\MyData\\Administrator\\Desktop\\ttttt.csv");
+        FileWriter fw = new FileWriter("D:\\MyData\\Administrator\\Desktop\\result.txt");
+        fw.flush();
+        BufferedWriter bw = new BufferedWriter(fw);
+        bw.write("统计结果：" + "\r\n");
+        bw.write("代码库" + "                   " + devSize / 1024 + "G" + "\r\n");
+        bw.write("文档库" + "                   " + docSize / 1024 + "G" + "\r\n");
+        bw.write("制品库" + "                   " + releaseSize / 1024 + "G" + "\r\n");
+        bw.write("其他" + "                     " + otherSize / 1024 + "G" + "\r\n");
+        bw.write("----------------------------------" + "\r\n");
+        bw.write("仓库名：" + "               " + "仓库大小：" + "\r\n");
+        bw.write("------------代码库----------------" + "\r\n");
+        output(codeList, bw);
+        bw.write("------------文档库----------------" + "\r\n");
+        output(docList, bw);
+        bw.write("------------制品库----------------" + "\r\n");
+        output(releaseList, bw);
+        bw.write("------------其  他----------------" + "\r\n");
+        output(otherList, bw);
+        bw.close();
+        fw.close();
+    }
+
+    private static List<Repository> parseTxt(String path) throws Exception {
+        File file = new File(path);
+        BufferedReader reader = new BufferedReader(new FileReader(file));
+        return reader.lines().map(line -> {
+            String[] data = line.split("\\s+");
+            return new Repository(data[0], data[1]);
+        }).collect(Collectors.toList());
+    }
+
+    private static boolean filter(String source, String condition){
+        return source.toLowerCase().endsWith(condition);
     }
 
     private static String calculate(String word) {
@@ -94,5 +90,20 @@ public class main {
             blank = blank + " ";
         }
         return blank;
+    }
+
+    private static void output(List<Repository> repositoryList, BufferedWriter writer) throws Exception{
+        for (Repository svnRepo : repositoryList) {
+            //对其，仓库名最大长度设置为25
+            String blank = calculate(svnRepo.getName());
+            long sizeG = 0;
+            if (svnRepo.getSize() < 1024) {
+                sizeG = svnRepo.getSize();
+                writer.write(svnRepo.getName() + blank + sizeG + "M" + "\r\n");
+            } else {
+                sizeG = svnRepo.getSize() / 1024;
+                writer.write(svnRepo.getName() + blank + sizeG + "G" + "\r\n");
+            }
+        }
     }
 }
